@@ -1,235 +1,347 @@
-# 🌌 NASA POWER Data Explorer
+# NASA POWER Data Explorer
 
-A comprehensive weather data analysis platform powered by NASA POWER API and Google Gemini AI, featuring both Streamlit and React interfaces with machine learning forecasting capabilities.
+A full-stack weather analytics platform integrating NASA POWER API with Google Gemini AI for meteorological data analysis, machine learning forecasting, and intelligent insights generation.
 
-## 🚀 Features
-
-- **NASA POWER API Integration**: Access to global weather and climate data
-- **AI-Powered Insights**: Google Gemini AI analysis of weather patterns
-- **Machine Learning Forecasting**: 7-day weather predictions
-- **Interactive Visualizations**: Charts, maps, and statistical analysis
-- **Location Comparison**: Compare weather data across multiple locations
-- **Export Capabilities**: Generate PDF reports and export data
-- **Real-time Chatbot**: AI assistant for weather queries
-- **Dual Interface**: Both Streamlit and React frontends
-
-## 🏗️ Architecture
+## System Architecture
 
 ```
-nasa/
-├── app.py                    # Streamlit application
-├── requirements.txt          # Python dependencies
-├── nasa-weather-app/         # React application
-│   ├── src/
-│   │   ├── components/       # React components
-│   │   ├── services/         # ML forecasting services
-│   │   └── App.js           # Main React app
-│   ├── server.js            # Express.js API server
-│   ├── package.json         # Node.js dependencies
-│   └── .env                 # Environment variables
-└── README.md
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   React SPA     │    │   Express.js     │    │   NASA POWER    │
+│   (Port 3000)   │◄──►│   API Gateway    │◄──►│      API        │
+│                 │    │   (Port 3001)    │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       ▼                       │
+         │              ┌──────────────────┐             │
+         │              │   Google Gemini  │             │
+         └──────────────┤   AI Service     │─────────────┘
+                        │   (LLM Engine)   │
+                        └──────────────────┘
+                                 │
+                        ┌──────────────────┐
+                        │   Streamlit      │
+                        │   Dashboard      │
+                        │   (Port 8501)    │
+                        └──────────────────┘
 ```
 
-## 🛠️ Prerequisites
+## Technology Stack
 
-- **Python 3.8+**
-- **Node.js 16+**
-- **npm or yarn**
-- **Google Gemini API Key**
+### Frontend Layer
+- **React 19.1.1**: Component-based UI framework
+- **Chart.js 4.5.0**: Data visualization library
+- **Leaflet 1.9.4**: Interactive mapping
+- **Axios**: HTTP client for API communication
+- **HTML2Canvas + jsPDF**: Report generation
 
-## ⚡ Quick Start
+### Backend Layer
+- **Express.js 4.18.2**: RESTful API server
+- **CORS**: Cross-origin resource sharing
+- **Body-parser**: Request parsing middleware
+- **dotenv**: Environment configuration
 
-### 1. Clone and Setup
+### AI/ML Services
+- **Google Generative AI (@google/generative-ai)**: LLM integration
+- **Gemini-1.5-flash**: Model for insights generation
+- **Custom ML Forecasting**: Scikit-learn based predictions
 
+### Alternative Interface
+- **Streamlit**: Python-based dashboard
+- **Pandas**: Data manipulation
+- **Matplotlib**: Statistical plotting
+- **Folium**: Geospatial visualization
+
+## API Specifications
+
+### NASA POWER API Integration
+```
+Endpoint: https://power.larc.nasa.gov/api/temporal/daily/point
+Parameters:
+- longitude: [-180, 180]
+- latitude: [-90, 90]
+- start: YYYYMMDD format
+- end: YYYYMMDD format
+- parameters: T2M,PRECTOTCORR,WS2M,RH2M,SNODP
+- community: RE (Renewable Energy)
+- format: JSON
+```
+
+### Internal API Endpoints
+
+#### Weather Data Proxy
+```http
+GET /api/nasa-proxy
+Query Parameters:
+  - parameters: string (comma-separated)
+  - longitude: float
+  - latitude: float
+  - start: string (YYYYMMDD)
+  - end: string (YYYYMMDD)
+  - format: string (JSON)
+
+Response:
+{
+  "properties": {
+    "parameter": {
+      "T2M": { "20240101": 25.3, ... },
+      "PRECTOTCORR": { "20240101": 0.5, ... }
+    }
+  },
+  "parameters": {
+    "T2M": { "units": "C", "longname": "Temperature at 2 Meters" }
+  }
+}
+```
+
+#### AI Insights Generation
+```http
+POST /api/insights
+Content-Type: application/json
+
+Request Body:
+{
+  "data": [
+    { "date": "20240101", "T2M": 25.3, "PRECTOTCORR": 0.5 }
+  ],
+  "parameters": ["T2M", "PRECTOTCORR"],
+  "units": { "T2M": { "units": "C" } },
+  "location": { "lat": 40.7128, "lon": -74.0060 }
+}
+
+Response:
+{
+  "insights": "TREND ANALYSIS: Temperature shows increasing pattern...\nPREDICTIONS: Expected conditions..."
+}
+```
+
+#### Parameter-Specific Analysis
+```http
+POST /api/parameter-insights
+Content-Type: application/json
+
+Request Body:
+{
+  "param": "T2M",
+  "values": [25.3, 26.1, 24.8],
+  "unit": "°C",
+  "location": { "lat": 40.7128, "lon": -74.0060 }
+}
+
+Response:
+{
+  "interpretation": "Temperature Analysis: Current value is 24.8°C..."
+}
+```
+
+## Data Processing Pipeline
+
+### 1. Data Ingestion
+```javascript
+// NASA API response transformation
+const processedData = dates.map(date => {
+  const row = { date };
+  Object.keys(paramData).forEach(param => {
+    row[param] = paramData[param][date] === -999 ? null : paramData[param][date];
+  });
+  return row;
+});
+```
+
+### 2. Statistical Analysis
+```javascript
+// Real-time metrics calculation
+const statistics = {
+  mean: values.reduce((a, b) => a + b, 0) / values.length,
+  min: Math.min(...values),
+  max: Math.max(...values),
+  stdDev: calculateStandardDeviation(values),
+  variance: calculateVariance(values)
+};
+```
+
+### 3. ML Forecasting Algorithm
+```javascript
+// Time series forecasting implementation
+class MLForecaster {
+  generateForecast(data, parameter, days, aiContext) {
+    const values = this.extractValues(data, parameter);
+    const trend = this.calculateTrend(values);
+    const seasonality = this.detectSeasonality(values);
+    const forecast = this.applyMLModel(values, trend, seasonality, days);
+    return this.enhanceWithAI(forecast, aiContext);
+  }
+}
+```
+
+## Environment Configuration
+
+### Required Environment Variables
 ```bash
-git clone <repository-url>
-cd nasa
-```
-
-### 2. Backend Setup (Python/Streamlit)
-
-```bash
-# Install Python dependencies
-pip install -r requirements.txt
-```
-
-### 3. Frontend Setup (React/Node.js)
-
-```bash
-cd nasa-weather-app
-
-# Install Node.js dependencies
-npm install
-
-# Configure environment variables
-echo "GEMINI_API_KEY=your_gemini_api_key_here" > .env
-```
-
-### 4. Start All Services
-
-```bash
-# Terminal 1: Start Streamlit (port 8501)
-streamlit run app.py
-
-# Terminal 2: Start Express API (port 3001)
-cd nasa-weather-app
-node server.js
-
-# Terminal 3: Start React frontend (port 3000)
-cd nasa-weather-app
-npm start
-```
-
-**Or use the convenient script:**
-```bash
-cd nasa-weather-app
-npm run dev  # Starts both API server and React app
-```
-
-## 🌐 Access Points
-
-- **React App**: http://localhost:3000
-- **Streamlit App**: http://localhost:8501
-- **API Server**: http://localhost:3001
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create `.env` file in `nasa-weather-app/`:
-
-```env
+# .env file in nasa-weather-app/
 GEMINI_API_KEY=your_google_gemini_api_key
+NODE_ENV=development
+PORT=3001
+CORS_ORIGIN=http://localhost:3000
 ```
 
-### API Keys Setup
-
-1. **Google Gemini API**:
-   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Generate API key
-   - Add to `.env` file
-
-## 📊 Usage
-
-### React Interface (Recommended)
-
-1. Navigate to http://localhost:3000
-2. Select weather parameters (Temperature, Precipitation, Wind Speed, etc.)
-3. Choose location (coordinates or search)
-4. Set date range
-5. Click "Fetch Data" to get:
-   - Statistical analysis
-   - Interactive charts
-   - ML forecasts
-   - AI insights
-   - Exportable reports
-
-### Streamlit Interface
-
-1. Navigate to http://localhost:8501
-2. Use the sidebar to configure parameters
-3. View data visualizations and AI insights
-
-## 🤖 AI Features
-
-- **Weather Pattern Analysis**: Gemini AI analyzes trends and anomalies
-- **ML Forecasting**: 7-day predictions using scikit-learn
-- **Interactive Chatbot**: Ask questions about weather data
-- **Automated Insights**: Natural language explanations of data
-
-## 📈 Available Parameters
-
-- **T2M**: Temperature at 2 Meters (°C)
-- **PRECTOTCORR**: Precipitation (mm/day)
-- **WS2M**: Wind Speed at 2 Meters (m/s)
-- **RH2M**: Relative Humidity at 2 Meters (%)
-- **SNODP**: Snow Depth (cm)
-
-## 🔄 API Endpoints
-
-### Express.js Server (port 3001)
-
-- `GET /api/nasa-proxy` - Proxy to NASA POWER API
-- `POST /api/insights` - Generate AI insights
-- `POST /api/probabilities` - Calculate weather probabilities
-
-## 🛠️ Development
-
-### Project Structure
-
-```
-src/
-├── components/
-│   ├── WeatherForm.js       # Data input form
-│   ├── WeatherChart.js      # Chart visualizations
-│   ├── WeatherStats.js      # Statistical analysis
-│   ├── GeminiInsights.js    # AI insights display
-│   ├── MLMetrics.js         # ML forecasting
-│   ├── Chatbot.js          # AI chatbot
-│   └── ...
-├── services/
-│   └── mlForecasting.js     # ML algorithms
-└── App.js                   # Main application
+### Python Dependencies
+```txt
+streamlit>=1.28.0
+pandas>=2.0.0
+requests>=2.31.0
+matplotlib>=3.7.0
+geopy>=2.3.0
+folium>=0.14.0
+streamlit-folium>=0.13.0
+google-generativeai>=0.3.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
 ```
 
-### Adding New Features
+### Node.js Dependencies
+```json
+{
+  "dependencies": {
+    "@google/generative-ai": "^0.1.3",
+    "axios": "^1.12.2",
+    "body-parser": "^1.20.2",
+    "chart.js": "^4.5.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "react": "^19.1.1",
+    "react-chartjs-2": "^5.3.0"
+  }
+}
+```
 
-1. **New Weather Parameter**: Update parameter mappings in `server.js`
-2. **New ML Model**: Extend `mlForecasting.js`
-3. **New Visualization**: Add component in `src/components/`
+## Deployment Architecture
 
-## 🚨 Troubleshooting
-
-### Common Issues
-
-**"Failed to fetch weather data"**
-- Ensure all three services are running
-- Check API key configuration
-- Verify network connectivity
-
-**Port conflicts**
-- Change ports in respective config files
-- Kill existing processes: `pkill -f "node\|streamlit"`
-
-**Missing dependencies**
-- Run `pip install -r requirements.txt`
-- Run `npm install` in nasa-weather-app/
-
-### Service Status Check
-
+### Development Environment
 ```bash
-# Check running services
-lsof -i :3000  # React app
-lsof -i :3001  # Express API
-lsof -i :8501  # Streamlit app
+# Terminal 1: Backend API Server
+cd nasa-weather-app && node server.js
+
+# Terminal 2: React Development Server
+cd nasa-weather-app && npm start
+
+# Terminal 3: Streamlit Dashboard
+streamlit run app.py --server.port 8501
 ```
 
-## 📝 License
+### Production Deployment
+```bash
+# Build React application
+npm run build
 
-This project is licensed under the MIT License.
+# Serve static files with Express
+app.use(express.static(path.join(__dirname, 'build')));
 
-## 🤝 Contributing
+# PM2 process management
+pm2 start ecosystem.config.js
+```
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+## Performance Optimization
 
-## 📞 Support
+### Caching Strategy
+```javascript
+// In-memory caching for API responses
+const cache = {};
+const cacheKey = JSON.stringify(requestBody);
+if (cache[cacheKey]) {
+  return res.json({ insights: cache[cacheKey] });
+}
+```
 
-For issues and questions:
-- Check troubleshooting section
-- Review API documentation
-- Open GitHub issue
+### Error Handling & Fallbacks
+```javascript
+// Graceful degradation for AI services
+try {
+  const aiInsights = await generateGeminiInsights(data);
+  return aiInsights;
+} catch (error) {
+  console.error('AI service unavailable:', error);
+  return generateStatisticalFallback(data);
+}
+```
 
-## 🙏 Acknowledgments
+## Security Considerations
 
-- **NASA POWER API** for weather data
-- **Google Gemini AI** for insights generation
-- **React & Streamlit** for user interfaces
-- **Chart.js** for visualizations
+### API Key Management
+- Environment variable isolation
+- No client-side API key exposure
+- Server-side proxy pattern for external APIs
+
+### CORS Configuration
+```javascript
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true
+}));
+```
+
+### Input Validation
+```javascript
+// Parameter validation middleware
+const validateWeatherRequest = (req, res, next) => {
+  const { latitude, longitude, start, end } = req.query;
+  if (!isValidCoordinate(latitude, longitude)) {
+    return res.status(400).json({ error: 'Invalid coordinates' });
+  }
+  next();
+};
+```
+
+## Monitoring & Logging
+
+### Server Logging
+```javascript
+// Structured logging implementation
+console.log(`[${new Date().toISOString()}] ${method} ${url} - ${statusCode}`);
+```
+
+### Error Tracking
+```javascript
+// Comprehensive error handling
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+```
+
+## Testing Strategy
+
+### Unit Testing
+```bash
+# React component testing
+npm test
+
+# API endpoint testing
+npm run test:api
+```
+
+### Integration Testing
+```bash
+# End-to-end testing with Cypress
+npm run test:e2e
+```
+
+## Contributing Guidelines
+
+### Code Standards
+- ESLint configuration for JavaScript
+- Prettier for code formatting
+- Conventional commits for version control
+
+### Development Workflow
+1. Fork repository
+2. Create feature branch: `git checkout -b feature/enhancement`
+3. Implement changes with tests
+4. Submit pull request with detailed description
+
+## License
+
+MIT License - see LICENSE file for details.
 
 ---
 
-**Made with ❤️ and powered by NASA data 🛰️**
+**Technical Support**: For implementation details and API documentation, refer to the inline code comments and JSDoc annotations.
